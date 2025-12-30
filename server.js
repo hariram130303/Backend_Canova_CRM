@@ -28,4 +28,8 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/leads", leadRoutes);
 app.use("/api/employee", employeesRoutes);
 
+app.get("/", (req, res) => {
+  res.send("Backend API is running 🚀");
+});
+
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
