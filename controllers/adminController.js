@@ -4,20 +4,45 @@ const User = require("../models/User");
 /* ================= DASHBOARD ================= */
 const getDashboard = async (req, res) => {
   try {
-    const unassigned = await Lead.countDocuments({ assignedTo: null });
-    const week = await Lead.countDocuments();
-    const active = await User.countDocuments({
-      status: "Active",
-      role: "sales",
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - 7);
+
+    // Unassigned leads
+    const unassigned = await Lead.countDocuments({
+      assignedTo: null,
     });
 
-    const assigned = await Lead.countDocuments();
-    const closed = await Lead.countDocuments({ status: "Closed" });
+    // Assigned THIS WEEK
+    const week = await Lead.countDocuments({
+      assignedTo: { $ne: null },
+      updatedAt: { $gte: startOfWeek },
+    });
 
-    const rate = assigned ? Math.round((closed / assigned) * 100) : 0;
+    // Active salespeople (who actually have leads)
+    const active = await Lead.distinct("assignedTo", {
+      assignedTo: { $ne: null },
+    }).then((arr) => arr.length);
 
-    res.json({ unassigned, week, active, rate });
+    // Conversion Rate
+    const assigned = await Lead.countDocuments({
+      assignedTo: { $ne: null },
+    });
+
+    const closed = await Lead.countDocuments({
+      status: "Closed",
+      assignedTo: { $ne: null },
+    });
+
+    const rate = assigned === 0 ? 0 : Math.round((closed / assigned) * 100);
+
+    res.json({
+      unassigned,
+      week,
+      active,
+      rate,
+    });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Dashboard fetch failed" });
   }
 };

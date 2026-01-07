@@ -6,14 +6,27 @@ const { assignLeadByLanguage } = require("../utils/assignLead");
 const { validateCSVRow } = require("../utils/validateCSV");
 const formatDate = require("../utils/formatDate");
 
-/* ================= GET ALL LEADS ================= */
+/* ================= GET ALL LEADS (PAGINATED) ================= */
 const getLeads = async (req, res) => {
   try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 8;
+    const skip = (page - 1) * limit;
+
     const leads = await Lead.find()
       .populate("assignedTo", "firstName lastName")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    res.json(leads);
+    const total = await Lead.countDocuments();
+
+    res.json({
+      data: leads,
+      total,
+      totalPages: Math.ceil(total / limit),
+      page,
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch leads" });
   }
@@ -64,6 +77,7 @@ const createManualLead = async (req, res) => {
 const uploadCSV = async (req, res) => {
   const results = [];
 
+
   try {
     await new Promise((resolve, reject) => {
       fs.createReadStream(req.file.path)
@@ -81,7 +95,10 @@ const uploadCSV = async (req, res) => {
 
     const leads = await Promise.all(
       results.map(async (row) => {
-        const assignedTo = await assignLeadByLanguage(row.Language);
+        const lang =
+  (row.Language || row.language || "").toString().trim().toLowerCase();
+
+const assignedTo = await assignLeadByLanguage(lang);
 
         return {
           name: row.Name,

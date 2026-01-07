@@ -13,13 +13,15 @@ const {
 
 const router = express.Router();
 
+
+router.get("/profile", auth, getOwnProfile);
+router.put("/profile", auth, updateOwnProfile);
+
 router.post("/", auth, isAdmin, createEmployee);
 router.get("/", auth, isAdmin, getEmployees);
 router.put("/:id", auth, isAdmin, updateEmployee);
 router.delete("/:id", auth, isAdmin, deleteEmployee);
 router.delete("/bulk", auth, isAdmin, bulkDeleteEmployees);
 
-router.get("/profile", auth, getOwnProfile);
-router.put("/profile", auth, updateOwnProfile);
 
 module.exports = router;

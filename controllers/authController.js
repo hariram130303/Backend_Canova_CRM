@@ -6,25 +6,62 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const emp = await Employee.findOne({ email });
-    if (!emp) return res.status(404).json({ message: "Employee not found" });
+    // find employee
+    const employee = await Employee.findOne({ email });
 
-    const match = await bcrypt.compare(password, emp.password);
-    if (!match) return res.status(400).json({ message: "Invalid password" });
+    if (!employee) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
+    // compare using bcrypt ALWAYS
+    const valid = await bcrypt.compare(password, employee.password);
+
+    if (!valid) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // token
     const token = jwt.sign(
-      { id: emp._id, role: "employee" },
+      {
+        id: employee._id,
+        role: "employee",
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     res.json({
+      message: "Login success",
       token,
-      firstName: emp.firstName,
-      lastName: emp.lastName,
-      email: emp.email
+      employee: {
+        id: employee._id,
+        name: employee.firstName + " " + employee.lastName,
+        email: employee.email,
+        firstLogin: employee.firstLogin
+      },
     });
+
   } catch (err) {
-    res.status(500).json({ message: "Login failed" });
+    console.log(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.changePassword = async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    const userId = req.user.id;
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await Employee.findByIdAndUpdate(userId, {
+      password: hashed,
+      firstLogin: false
+    });
+
+    res.json({ message: "Password updated successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };

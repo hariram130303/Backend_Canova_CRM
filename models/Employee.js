@@ -14,6 +14,8 @@ const employeeSchema = new mongoose.Schema(
     assigned: { type: Number, default: 0 },
     closed: { type: Number, default: 0 },
     status: { type: String, default: "active" },
+    firstLogin: {type: Boolean,default: true}
+
   },
   { timestamps: true }
 );

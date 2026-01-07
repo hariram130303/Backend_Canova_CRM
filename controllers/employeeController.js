@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const Employee = require("../models/Employee");
+const Lead = require("../models/Lead");
 
 /* ---------- CREATE EMPLOYEE ---------- */
 const createEmployee = async (req, res) => {
@@ -26,25 +27,35 @@ const createEmployee = async (req, res) => {
 /* ---------- GET EMPLOYEES (PAGINATION) ---------- */
 const getEmployees = async (req, res) => {
   try {
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 8;
-    const skip = (page - 1) * limit;
+    const employees = await Employee.find().lean();
 
-    const employees = await Employee.find()
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    const leadStats = await Lead.aggregate([
+      {
+        $group: {
+          _id: "$assignedTo",
+          assigned: { $sum: 1 },
+          closed: {
+            $sum: {
+              $cond: [{ $eq: ["$status", "Closed"] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
 
-    const total = await Employee.countDocuments();
+    const map = {};
+    leadStats.forEach((s) => (map[s._id?.toString()] = s));
 
-    res.json({
-      data: employees,
-      total,
-      totalPages: Math.ceil(total / limit)
-    });
+    const enriched = employees.map((emp) => ({
+      ...emp,
+      assigned: map[emp._id]?.assigned || 0,
+      closed: map[emp._id]?.closed || 0,
+    }));
 
+    res.json({ data: enriched });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: "Failed to load employees" });
   }
 };
 
@@ -112,6 +123,7 @@ const updateOwnProfile = async (req, res) => {
 
     if (req.body.password) {
       data.password = await bcrypt.hash(req.body.password, 10);
+      data.firstLogin = false;
     }
 
     const updated = await Employee.findByIdAndUpdate(req.user.id, data, { new: true });
@@ -121,6 +133,7 @@ const updateOwnProfile = async (req, res) => {
     res.status(500).json({ error: "Failed to update profile" });
   }
 };
+
 
 
 module.exports = {
